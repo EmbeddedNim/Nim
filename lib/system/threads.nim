@@ -47,7 +47,16 @@
 when not declared(ThisIsSystem):
   {.error: "You must not import this module explicitly".}
 
+const
+  hasAllocStack = defined(zephyr) # maybe freertos too?
+
 when defined(zephyr) or defined(freertos):
+  # Zephyr doesn't include this properly without some help
+  when defined(zephyr):
+    {.emit: """/*INCLUDESECTION*/
+    #include <pthread.h>
+    """.}
+
   const
     nimThreadStackSize {.intdefine.} = 8192 
     nimThreadStackGuard {.intdefine.} = 128
@@ -98,6 +107,8 @@ type
     else:
       dataFn: proc (m: TArg) {.nimcall, gcsafe.}
       data: TArg
+    when hasAllocStack:
+      rawStack: pointer
 
 proc `=copy`*[TArg](x: var Thread[TArg], y: Thread[TArg]) {.error.}
 
@@ -161,6 +172,8 @@ else:
       threadTrouble()
     finally:
       afterThreadRuns()
+      when hasAllocStack:
+        deallocShared(thrd.rawStack)
 
 proc threadProcWrapStackFrame[TArg](thrd: ptr Thread[TArg]) {.raises: [].} =
   when defined(boehmgc):
@@ -330,11 +343,12 @@ else:
     when hasSharedHeap: t.core.stackSize = ThreadStackSize
     var a {.noinit.}: Pthread_attr
     doAssert pthread_attr_init(a) == 0
-    when defined(zephyr):
+    when hasAllocStack:
       var
         rawstk = allocShared0(ThreadStackSize + StackGuardSize)
         stk = cast[pointer](cast[uint](rawstk) + StackGuardSize)
       let setstacksizeResult = pthread_attr_setstack(addr a, stk, ThreadStackSize)
+      thr.rawStack = rawstk
     else:
       let setstacksizeResult = pthread_attr_setstacksize(a, ThreadStackSize)
 
