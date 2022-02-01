@@ -50,13 +50,7 @@ when not declared(ThisIsSystem):
 const
   hasAllocStack = defined(zephyr) # maybe freertos too?
 
-when defined(zephyr) or defined(freertos):
-  # Zephyr doesn't include this properly without some help
-  when defined(zephyr):
-    {.emit: """/*INCLUDESECTION*/
-    #include <pthread.h>
-    """.}
-
+when hasAllocStack or defined(zephyr) or defined(freertos):
   const
     nimThreadStackSize {.intdefine.} = 8192 
     nimThreadStackGuard {.intdefine.} = 128
@@ -76,6 +70,12 @@ else:
 
 #const globalsSlot = ThreadVarSlot(0)
 #sysAssert checkSlot.int == globalsSlot.int
+
+# Zephyr doesn't include this properly without some help
+when defined(zephyr):
+  {.emit: """/*INCLUDESECTION*/
+  #include <pthread.h>
+  """.}
 
 # create for the main thread. Note: do not insert this data into the list
 # of all threads; it's not to be stopped etc.
