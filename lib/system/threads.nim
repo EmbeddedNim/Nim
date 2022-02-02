@@ -348,7 +348,7 @@ else:
         rawstk = allocShared0(ThreadStackSize + StackGuardSize)
         stk = cast[pointer](cast[uint](rawstk) + StackGuardSize)
       let setstacksizeResult = pthread_attr_setstack(addr a, stk, ThreadStackSize)
-      thr.rawStack = rawstk
+      t.rawStack = rawstk
     else:
       let setstacksizeResult = pthread_attr_setstacksize(a, ThreadStackSize)
 
